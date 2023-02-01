@@ -13,7 +13,7 @@ class CreateSentEmailsTable extends Migration
      */
     public function up()
     {
-        Schema::connection((new SentEmail)->getConnectionName())->create('_sent_emails', function (Blueprint $table) {
+        Schema::connection((new SentEmail)->getConnectionName())->create('sent_emails', function (Blueprint $table) {
             $table->increments('id');
             $table->uuid('uuid')->unique();
             $table->text('headers')->nullable();

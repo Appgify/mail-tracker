@@ -10,7 +10,7 @@ class MailMessageTrack extends MailMessage
 
     public function __construct()
     {
-        $this->withTracking();
+        $this->witTracking();
 
         if (config('mail-tracker.log-content')) {
             $this->logBody();

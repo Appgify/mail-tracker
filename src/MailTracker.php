@@ -2,48 +2,23 @@
 
 namespace ABCreche\MailTracker;
 
-use Exception;
-use Ramsey\Uuid\Uuid;
-use Illuminate\Support\Str;
-use Illuminate\Mail\SentMessage;
-use Symfony\Component\Mime\Email;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Mail\Events\MessageSent;
-use Symfony\Component\Mime\Part\TextPart;
-use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Str;
 use ABCreche\MailTracker\Model\SentEmail;
 use ABCreche\MailTracker\Events\EmailSentEvent;
-use Symfony\Component\Mime\Part\Multipart\MixedPart;
 use ABCreche\MailTracker\Model\SentEmailUrlClicked;
-use Closure;
-use Symfony\Component\Mime\Part\Multipart\RelatedPart;
-use Symfony\Component\Mime\Part\Multipart\AlternativePart;
+use Ramsey\Uuid\Uuid;
 
-class MailTracker
+class MailTracker implements \Swift_Events_SendListener
 {
-    // Set this to "false" to skip this library migrations
-    public static $runsMigrations = true;
-
     protected $uuid;
-
-    /**
-     * Configure this library to not register its migrations.
-     *
-     * @return static
-     */
-    public static function ignoreMigrations()
-    {
-        static::$runsMigrations = false;
-
-        return new static;
-    }
 
     /**
      * Inject the tracking code into the message
      */
-    public function messageSending(MessageSending $event)
+    public function beforeSendPerformed(\Swift_Events_SendEvent $event)
     {
-        $message = $event->message;
+        $message = $event->getMessage();
 
         // Create the trackers
         $this->createTrackers($message);
@@ -52,67 +27,12 @@ class MailTracker
         $this->purgeOldRecords();
     }
 
-    public function messageSent(MessageSent $event)
+    public function sendPerformed(\Swift_Events_SendEvent $event)
     {
-        $sentMessage = $event->sent;
-        $headers = $sentMessage->getOriginalMessage()->getHeaders();
-        $uuid = optional($headers->get('X-Mailer-Uuid'))->getBody();
-        $sentEmail = SentEmail::where('uuid', $uuid)->first();
-
-        if ($sentEmail) {
-            $sentEmail->message_id = $this->callMessageIdResolverUsing($sentMessage);
-            $sentEmail->save();
-        }
-    }
-
-    protected function callMessageIdResolverUsing(SentMessage $message): string
-    {
-        return $this->getMessageIdResolver()(...func_get_args());
-    }
-
-    public function getMessageIdResolver(): Closure
-    {
-        if (! isset($this->messageIdResolver)) {
-            $this->resolveMessageIdUsing($this->getDefaultMessageIdResolver());
-        }
-
-        return $this->messageIdResolver;
-    }
-
-    public function resolveMessageIdUsing(Closure $resolver): self
-    {
-        $this->messageIdResolver = $resolver;
-        return $this;
-    }
-
-    protected function getDefaultMessageIdResolver(): Closure
-    {
-        return function (SentMessage $message) {
-            /** @var \Symfony\Component\Mime\Header\Headers $headers */
-            $headers = $message->getOriginalMessage()->getHeaders();
-
-            // Laravel supports multiple mail drivers.
-            // We try to guess if this email was sent using SES
-            if ($messageHeader = $headers->get('X-SES-Message-ID')) {
-                return $messageHeader->getBody();
-            }
-
-            // Second attempt, get the default message ID from symfony mailer
-            return $message->getMessageId();
-        };
-    }
-
-    protected function updateMessageId(SentMessage $message)
-    {
-        // Get the SentEmail object
-        $headers = $message->getOriginalMessage()->getHeaders();
-        $uuid = optional($headers->get('X-Mailer-Uuid'))->getBody();
-        $sent_email = SentEmail::where('uuid', $uuid)->first();
-
-        // Get info about the message-id from SES
-        if ($sent_email) {
-            $sent_email->message_id = $message->getMessageId();
-            $sent_email->save();
+        // If this was sent through SES, retrieve the data
+        if ((config('mail.default') ?? config('mail.driver')) == 'ses') {
+            $message = $event->getMessage();
+            $this->updateSesMessageId($message);
         }
     }
 
@@ -130,9 +50,11 @@ class MailTracker
         }
     }
 
-    protected function addTrackers($message, $html, $uuid)
+    protected function addTrackers($message, $uuid)
     {
         $headers = $message->getHeaders();
+
+        $html = $message->getBody();
 
         if ($headers->get('X-Track-Opens')) {
             $html = $this->injectTrackingPixel($html, $uuid);
@@ -218,12 +140,8 @@ class MailTracker
             return;
         }
 
-        foreach ($message->getTo() as $toAddress) {
-            $to_email = $toAddress->getAddress();
-            $to_name = $toAddress->getName();
-            foreach ($message->getFrom() as $fromAddress) {
-                $from_email = $fromAddress->getAddress();
-                $from_name = $fromAddress->getName();
+        foreach ($message->getTo() as $to_email => $to_name) {
+            foreach ($message->getFrom() as $from_email => $from_name) {
                 $headers = $message->getHeaders();
                 if ($headers->get('X-No-Track') || !$headers->get('X-Track')) {
                     // Don't send with this header
@@ -241,70 +159,30 @@ class MailTracker
                 $subject = $message->getSubject();
 
                 $original_content = $message->getBody();
-                $original_html = '';
-                if (
-                    ($original_content instanceof(AlternativePart::class)) ||
-                    ($original_content instanceof(MixedPart::class)) ||
-                    ($original_content instanceof(RelatedPart::class))
+
+                if ($message->getContentType() === 'text/html' ||
+                    ($message->getContentType() === 'multipart/alternative' && $message->getBody()) ||
+                    ($message->getContentType() === 'multipart/mixed' && $message->getBody())
                 ) {
-                    $messageBody = $message->getBody() ?: [];
-                    $newParts = [];
-                    foreach ($messageBody->getParts() as $part) {
-                        if (method_exists($part, 'getParts')) {
-                            foreach ($part->getParts() as $p) {
-                                if ($p->getMediaSubtype() == 'html') {
-                                    $original_html = $p->getBody();
-                                    $newParts[] = new TextPart(
-                                        $this->addTrackers($message, $original_html, $uuid),
-                                        $message->getHtmlCharset(),
-                                        $p->getMediaSubtype(),
-                                        null
-                                    );
+                    $message->setBody($this->addTrackers($message, $uuid));
+                }
 
-                                    break;
-                                }
-                            }
-                        }
-
-                        if ($part->getMediaSubtype() == 'html') {
-                            $original_html = $part->getBody();
-                            $newParts[] = new TextPart(
-                                $this->addTrackers($message, $original_html, $uuid),
-                                $message->getHtmlCharset(),
-                                $part->getMediaSubtype(),
-                                null
-                            );
-                        } else {
-                            $newParts[] = $part;
-                        }
-                    }
-                    $message->setBody(new AlternativePart(...$newParts));
-                } else {
-                    $original_html = $original_content->getBody();
-                    if ($original_content->getMediaSubtype() == 'html') {
-                        $message->setBody(
-                            new TextPart(
-                                $this->addTrackers($message, $original_html, $uuid),
-                                $message->getHtmlCharset(),
-                                $original_content->getMediaSubtype(),
-                                null
-                            )
-                        );
+                foreach ($message->getChildren() as $part) {
+                    if (strpos($part->getContentType(), 'text/html') === 0) {
+                        $part->setBody($this->addTrackers($message, $uuid));
                     }
                 }
 
                 $tracker = SentEmail::create([
                     'uuid' => $uuid,
                     'headers' => $headers->toString(),
-                    'sender_name' => $from_name,
-                    'sender_email' => $from_email,
-                    'recipient_name' => $to_name,
-                    'recipient_email' => $to_email,
+                    'sender' => $from_name." <".$from_email.">",
+                    'recipient' => $to_name.' <'.$to_email.'>',
                     'subject' => $subject,
-                    'content' => $shouldLogBody ? (strlen($original_html) > 65535 ? substr($original_html, 0, 65532) . "..." : $original_html) : null,
+                    'content' => $shouldLogBody ? (strlen($original_content) > 65535 ? substr($original_content, 0, 65532) . "..." : $original_content) : null,
                     'opens' => 0,
                     'clicks' => 0,
-                    'message_id' => (string) Uuid::uuid4(),
+                    'message_id' => $message->getId(),
                     'meta' => [],
                 ]);
 

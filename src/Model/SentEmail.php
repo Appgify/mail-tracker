@@ -21,18 +21,14 @@ class SentEmail extends Model
     protected $fillable = [
         'uuid',
         'headers',
-        'sender_name',
-        'sender_email',
-        'recipient_name',
-        'recipient_email',
+        'sender',
+        'recipient',
         'subject',
         'content',
         'opens',
         'clicks',
         'message_id',
         'meta',
-        'opened_at',
-        'clicked_at',
     ];
 
     protected $casts = [

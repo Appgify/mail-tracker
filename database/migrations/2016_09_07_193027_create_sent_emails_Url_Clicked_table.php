@@ -13,10 +13,10 @@ class CreateSentEmailsUrlClickedTable extends Migration
      */
     public function up()
     {
-        Schema::connection((new SentEmailUrlClicked())->getConnectionName())->create('_sent_emails_url_clicked', function (Blueprint $table) {
+        Schema::connection((new SentEmailUrlClicked())->getConnectionName())->create('sent_emails_url_clicked', function (Blueprint $table) {
             $table->increments('id');
             $table->integer('sent_email_id')->unsigned();
-            $table->foreign('sent_email_id')->references('id')->on('_sent_emails')->onDelete('cascade');
+            $table->foreign('sent_email_id')->references('id')->on('sent_emails')->onDelete('cascade');
             $table->text('url')->nullable();
             $table->uuid('uuid');
             $table->integer('clicks')->default('1');
@@ -31,6 +31,6 @@ class CreateSentEmailsUrlClickedTable extends Migration
      */
     public function down()
     {
-        Schema::connection((new SentEmailUrlClicked())->getConnectionName())->drop('_sent_emails_url_clicked');
+        Schema::connection((new SentEmailUrlClicked())->getConnectionName())->drop('sent_emails_url_clicked');
     }
 }

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class SentEmailUrlClicked extends Model
 {
-    protected $table = '_sent_emails_url_clicked';
+    protected $table = 'sent_emails_url_clicked';
 
     protected $fillable = [
         'sent_email_id',

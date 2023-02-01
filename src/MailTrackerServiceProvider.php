@@ -2,9 +2,8 @@
 
 namespace ABCreche\MailTracker;
 
-use Illuminate\Mail\Events\MessageSending;
-use Illuminate\Mail\Events\MessageSent;
-use Illuminate\Support\Facades\Event;
+use Mail;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,14 +29,7 @@ class MailTrackerServiceProvider extends ServiceProvider
 
 
         // Hook into the mailer
-        Event::listen(MessageSending::class, function (MessageSending $event) {
-            $tracker = new MailTracker;
-            $tracker->messageSending($event);
-        });
-        Event::listen(MessageSent::class, function (MessageSent $mail) {
-            $tracker = new MailTracker;
-            $tracker->messageSent($mail);
-        });
+        $this->registerSwiftPlugin();
 
         // Install the routes
         $this->installRoutes();
@@ -63,6 +55,16 @@ class MailTrackerServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../config/mail-tracker.php' => config_path('mail-tracker.php')
         ], 'config');
+    }
+
+    /**
+     * Register the Swift plugin
+     *
+     * @return void
+     */
+    protected function registerSwiftPlugin()
+    {
+        $this->app['mailer']->getSwiftMailer()->registerPlugin(new MailTracker());
     }
 
     /**

@@ -5,7 +5,7 @@ trait Trackable
 {
     public function __construct()
     {
-        $this->withTracking();
+        $this->witTracking();
 
         if (config('mail-tracker.log-content')) {
             $this->logBody();
@@ -20,16 +20,16 @@ trait Trackable
 
     public function withoutTracking()
     {
-        $this->withSymfonyMessage(function ($message) {
+        $this->withSwiftMessage(function ($message) {
             $message->getHeaders()->addTextHeader('X-No-Track', "false");
         });
 
         return $this;
     }
 
-    public function withTracking()
+    public function witTracking()
     {
-        $this->withSymfonyMessage(function ($message) {
+        $this->withSwiftMessage(function ($message) {
             $message->getHeaders()->addTextHeader('X-Track', "true");
         });
 
@@ -38,7 +38,7 @@ trait Trackable
 
     public function trackLinks()
     {
-        $this->withSymfonyMessage(function ($message) {
+        $this->withSwiftMessage(function ($message) {
             $message->getHeaders()->addTextHeader('X-Track-Links', "true");
         });
 
@@ -47,7 +47,7 @@ trait Trackable
 
     public function trackOpens()
     {
-        $this->withSymfonyMessage(function ($message) {
+        $this->withSwiftMessage(function ($message) {
             $message->getHeaders()->addTextHeader('X-Track-Opens', "true");
         });
 
@@ -56,7 +56,7 @@ trait Trackable
 
     public function logBody()
     {
-        $this->withSymfonyMessage(function ($message) {
+        $this->withSwiftMessage(function ($message) {
             $message->getHeaders()->addTextHeader('X-LogBody', "true");
         });
 
@@ -65,7 +65,7 @@ trait Trackable
 
     public function model($model, $tag = null)
     {
-        $this->withSymfonyMessage(function ($message) use ($model, $tag) {
+        $this->withSwiftMessage(function ($message) use ($model, $tag) {
             $message->getHeaders()->addTextHeader('X-Model-ID', $model->getKey());
             $message->getHeaders()->addTextHeader('X-Model-Type', get_class($model));
             if ($tag) {
@@ -78,7 +78,7 @@ trait Trackable
 
     public function addHeader($key, $value)
     {
-        $this->withSymfonyMessage(function ($message) use ($key, $value) {
+        $this->withSwiftMessage(function ($message) use ($key, $value) {
             $message->getHeaders()->addTextHeader($key, $value);
         });
 

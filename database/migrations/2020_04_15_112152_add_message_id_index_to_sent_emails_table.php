@@ -14,7 +14,7 @@ class AddMessageIdIndexToSentEmailsTable extends Migration
      */
     public function up()
     {
-        Schema::connection((new SentEmail())->getConnectionName())->table('_sent_emails', function (Blueprint $table) {
+        Schema::connection((new SentEmail())->getConnectionName())->table('sent_emails', function (Blueprint $table) {
             $table->index('message_id');
         });
     }
@@ -26,7 +26,7 @@ class AddMessageIdIndexToSentEmailsTable extends Migration
      */
     public function down()
     {
-        Schema::connection((new SentEmail())->getConnectionName())->table('_sent_emails', function (Blueprint $table) {
+        Schema::connection((new SentEmail())->getConnectionName())->table('sent_emails', function (Blueprint $table) {
             $table->dropIndex('sent_emails_message_id_index');
         });
     }

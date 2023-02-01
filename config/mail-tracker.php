@@ -34,9 +34,9 @@ return [
      */
     'connection' => null,
 
-    'table_emails' => '_sent_emails',
+    'table_emails' => 'sent_emails',
 
-    'table_email_clicks' => '_sent_emails_url_clicked',
+    'table_email_clicks' => 'sent_emails_url_clicked',
 
     /**
      * The SNS notification topic - if set, discard all notifications not in this topic.
