@@ -1,6 +1,8 @@
 <?php
 namespace ABCreche\MailTracker;
 
+use Symfony\Component\Mime\Email;
+
 trait Trackable
 {
     public function __construct()
@@ -20,7 +22,7 @@ trait Trackable
 
     public function withoutTracking()
     {
-        $this->withSwiftMessage(function ($message) {
+        $this->withSymfonyMessage(function (Email $message) {
             $message->getHeaders()->addTextHeader('X-No-Track', "false");
         });
 
@@ -29,7 +31,7 @@ trait Trackable
 
     public function witTracking()
     {
-        $this->withSwiftMessage(function ($message) {
+        $this->withSymfonyMessage(function (Email $message) {
             $message->getHeaders()->addTextHeader('X-Track', "true");
         });
 
@@ -38,7 +40,7 @@ trait Trackable
 
     public function trackLinks()
     {
-        $this->withSwiftMessage(function ($message) {
+        $this->withSymfonyMessage(function (Email $message) {
             $message->getHeaders()->addTextHeader('X-Track-Links', "true");
         });
 
@@ -47,7 +49,7 @@ trait Trackable
 
     public function trackOpens()
     {
-        $this->withSwiftMessage(function ($message) {
+        $this->withSymfonyMessage(function (Email $message) {
             $message->getHeaders()->addTextHeader('X-Track-Opens', "true");
         });
 
@@ -56,7 +58,7 @@ trait Trackable
 
     public function logBody()
     {
-        $this->withSwiftMessage(function ($message) {
+        $this->withSymfonyMessage(function (Email $message) {
             $message->getHeaders()->addTextHeader('X-LogBody', "true");
         });
 
