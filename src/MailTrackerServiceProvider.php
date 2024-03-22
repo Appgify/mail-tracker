@@ -64,7 +64,7 @@ class MailTrackerServiceProvider extends ServiceProvider
      */
     protected function registerSwiftPlugin()
     {
-        $this->app['mailer']->getSwiftMailer()->registerPlugin(new MailTracker());
+        $this->app['mailer']->getSymfonyTransport()->registerPlugin(new MailTracker());
     }
 
     /**
